@@ -132,7 +132,7 @@ class EfficientSamOnnxModel(nn.Module):
         point_labels: torch.Tensor,
         mask_input: torch.Tensor,
         has_mask_input: torch.Tensor,
-        orig_im_size: torch.Tensor,
+        orig_im_size: torch.Tensor=None,
     ):
         sparse_embedding = self._embed_points(point_coords, point_labels)
         dense_embedding = self._embed_masks(mask_input, has_mask_input)
@@ -152,7 +152,10 @@ class EfficientSamOnnxModel(nn.Module):
         if self.return_single_mask:
             masks, scores = self.select_masks(masks, scores, point_coords.shape[1])
 
-        upscaled_masks = self.mask_postprocessing(masks, orig_im_size)
+        if orig_im_size:
+            upscaled_masks = self.mask_postprocessing(masks, orig_im_size)
+        else:
+            upscaled_masks = masks
 
         if self.return_extra_metrics:
             stability_scores = calculate_stability_score(

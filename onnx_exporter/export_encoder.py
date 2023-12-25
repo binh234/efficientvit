@@ -11,31 +11,40 @@ from torchvision.transforms.functional import resize
 from efficientvit.sam_model_zoo import create_sam_model
 from efficientvit.models.efficientvit.sam import EfficientViTSamPredictor
 
-parser = argparse.ArgumentParser(
-    description="Export the efficient-sam encoder to an onnx model."
-)
+parser = argparse.ArgumentParser(description="Export the efficient-sam encoder to an onnx model.")
 parser.add_argument(
-    "--checkpoint", type=str, required=True,
+    "--checkpoint",
+    type=str,
+    required=True,
     help="The path to the efficient-sam model checkpoint.",
 )
 parser.add_argument(
-    "--output", type=str, required=True,
+    "--output",
+    type=str,
+    required=True,
     help="The filename to save the onnx model to.",
 )
 parser.add_argument(
-    "--model-type", type=str, required=True,
+    "--model-type",
+    type=str,
+    required=True,
     help="In ['l0', 'l1'], Which type of efficient-sam model to export.",
 )
 parser.add_argument(
-    "--opset", type=int, default=12,
+    "--opset",
+    type=int,
+    default=12,
     help="The ONNX opset version to use. Must be >=11",
 )
 parser.add_argument(
-    "--use-preprocess", action="store_true",
+    "--use-preprocess",
+    action="store_true",
     help=("Embed pre-processing into the model",),
 )
 parser.add_argument(
-    "--quantize-out", type=str, default=None,
+    "--quantize-out",
+    type=str,
+    default=None,
     help=(
         "If set, will quantize the model and save it with this name. "
         "Quantization is performed with quantize_dynamic from "
@@ -50,6 +59,7 @@ parser.add_argument(
         "for some runtimes that have slow or unimplemented erf ops, used in GELU."
     ),
 )
+
 
 class SamResize:
     def __init__(self, size: int) -> None:
@@ -94,8 +104,8 @@ class SamResize:
 class EncoderModel(nn.Module):
     """
     This model should not be called directly, but is used in ONNX export.
-    It combines the image encoder of Sam, with some functions modified to enable model tracing. 
-    Also supports extra options controlling what information. 
+    It combines the image encoder of Sam, with some functions modified to enable model tracing.
+    Also supports extra options controlling what information.
     See the ONNX export script for details.
     """
 
@@ -119,14 +129,13 @@ class EncoderModel(nn.Module):
         self.transform = self.model.transform
 
     @torch.no_grad()
-    def forward(self, input_image):
+    def forward(self, image):
         if self.use_preprocess:
-            input_image = self.preprocess(input_image)
-        image_embeddings = self.image_encoder(input_image)
+            image = self.preprocess(image)
+        image_embeddings = self.image_encoder(image)
         return image_embeddings
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
-        
         # Resize & Permute to (C,H,W)
         x = self.resize_transform(x)
 
@@ -171,23 +180,19 @@ def run_export(
             if isinstance(m, torch.nn.GELU):
                 m.approximate = "tanh"
 
-    image_size = [1944, 2592]
+    image_size = [1024, 1024]
     if use_preprocess:
         dummy_input = {
-            "input_image": torch.randint(
-                0, 255, (image_size[0], image_size[1], 3), dtype=torch.uint8
-            )
-        }
-        dynamic_axes = {
-            "input_image": {0: "image_height", 1: "image_width"},
-        }
-    else:
-        dummy_input = {
-            "input_image": torch.randn(
-                (1, 3, image_size[0], image_size[1]), dtype=torch.float
-            )
+            "image": torch.randn(0, 255, (image_size[0], image_size[1], 3), dtype=torch.int32)
         }
         dynamic_axes = None
+    else:
+        dummy_input = {
+            "image": torch.randn((1, 3, image_size[0], image_size[1]), dtype=torch.float)
+        }
+        dynamic_axes = {
+            "image": {0: "batch_size"},
+        }
     _ = onnx_model(**dummy_input)
 
     output_names = ["image_embeddings"]

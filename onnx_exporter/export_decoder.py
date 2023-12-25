@@ -131,7 +131,7 @@ def run_export(
         ),
         "mask_input": torch.randn(1, 1, *mask_input_size, dtype=torch.float),
         "has_mask_input": torch.tensor([1], dtype=torch.float),
-        "orig_im_size": torch.tensor([1944, 2592], dtype=torch.float),
+        # "orig_im_size": torch.tensor([1024, 1024], dtype=torch.int32),
     }
 
     _ = onnx_model(**dummy_inputs)
