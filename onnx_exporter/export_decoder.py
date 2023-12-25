@@ -88,8 +88,8 @@ parser.add_argument(
     "--upscale-mask",
     action="store_true",
     help=(
-        "The model will return three results: (masks, scores, low_res_logits) instead of the usual two. This can be "
-        "significantly slower for high resolution outputs."
+        "The model will return three results: (masks, scores, low_res_logits) instead of the usual two."
+        "This will perform upscaling mask to fit original image size."
     ),
 )
 
