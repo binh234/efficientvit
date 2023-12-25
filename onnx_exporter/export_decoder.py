@@ -152,7 +152,7 @@ def run_export(
         if return_extra_metrics:
             output_names = ["masks", "iou_predictions", "stability_scores", "areas", "low_res_masks"]
     else:
-        output_names = ["low_res_masks", "iou_predictions"]
+        output_names = ["iou_predictions", "low_res_masks"]
 
     _ = onnx_model(**dummy_inputs)
 
