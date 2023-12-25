@@ -11,6 +11,7 @@ from torch.nn import functional as F
 from typing import Tuple
 from efficientvit.models.efficientvit.sam import EfficientViTSam
 
+
 def calculate_stability_score(
     masks: torch.Tensor, mask_threshold: float, threshold_offset: float
 ) -> torch.Tensor:
@@ -94,7 +95,6 @@ class EfficientSamOnnxModel(nn.Module):
         return mask_embedding
 
     def mask_postprocessing(self, masks: torch.Tensor, orig_im_size: torch.Tensor) -> torch.Tensor:
-        
         masks = F.interpolate(
             masks,
             size=(self.img_size, self.img_size),
@@ -132,7 +132,7 @@ class EfficientSamOnnxModel(nn.Module):
         point_labels: torch.Tensor,
         mask_input: torch.Tensor,
         has_mask_input: torch.Tensor,
-        orig_im_size: torch.Tensor=None,
+        orig_im_size: torch.Tensor = None,
     ):
         sparse_embedding = self._embed_points(point_coords, point_labels)
         dense_embedding = self._embed_masks(mask_input, has_mask_input)
@@ -154,14 +154,13 @@ class EfficientSamOnnxModel(nn.Module):
 
         if orig_im_size:
             upscaled_masks = self.mask_postprocessing(masks, orig_im_size)
+
+            if self.return_extra_metrics:
+                stability_scores = calculate_stability_score(
+                    upscaled_masks, self.model.mask_threshold, self.stability_score_offset
+                )
+                areas = (upscaled_masks > self.model.mask_threshold).sum(-1).sum(-1)
+                return upscaled_masks, scores, stability_scores, areas, masks
+            return upscaled_masks, scores, masks
         else:
-            upscaled_masks = masks
-
-        if self.return_extra_metrics:
-            stability_scores = calculate_stability_score(
-                upscaled_masks, self.model.mask_threshold, self.stability_score_offset
-            )
-            areas = (upscaled_masks > self.model.mask_threshold).sum(-1).sum(-1)
-            return upscaled_masks, scores, stability_scores, areas, masks
-
-        return upscaled_masks, scores, masks
+            return masks, scores

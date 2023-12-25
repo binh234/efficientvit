@@ -31,7 +31,8 @@ then
         --output assets/checkpoints/sam/efficientvit_sam_l1_vit_h.decoder.onnx \
         --model-type l1 \
         --opset 12 \
-        --return-single-mask
+        --return-single-mask \
+        --upscale-mask
 
 elif [ "$option" == "demo_onnx" ]
 then

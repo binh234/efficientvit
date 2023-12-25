@@ -66,12 +66,7 @@ class SamResize:
         self.size = size
 
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
-        h, w, _ = image.shape
-        long_side = max(h, w)
-        if long_side != self.size:
-            return self.apply_image(image)
-        else:
-            return image
+        return self.apply_image(image)
 
     def apply_image(self, image: torch.Tensor) -> torch.Tensor:
         """

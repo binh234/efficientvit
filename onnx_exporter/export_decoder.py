@@ -84,6 +84,14 @@ parser.add_argument(
         "significantly slower for high resolution outputs."
     ),
 )
+parser.add_argument(
+    "--upscale-mask",
+    action="store_true",
+    help=(
+        "The model will return three results: (masks, scores, low_res_logits) instead of the usual two. This can be "
+        "significantly slower for high resolution outputs."
+    ),
+)
 
 
 def run_export(
@@ -94,7 +102,8 @@ def run_export(
     return_single_mask: bool,
     gelu_approximate: bool = False,
     use_stability_score: bool = False,
-    return_extra_metrics=False,
+    return_extra_metrics: bool =False,
+    upscale_mask: bool = False,
 ):
     print("Loading model...")
     efficientvit_sam = create_sam_model(model_type, True, checkpoint).eval()
@@ -133,10 +142,19 @@ def run_export(
         "has_mask_input": torch.tensor([1], dtype=torch.float),
         # "orig_im_size": torch.tensor([1024, 1024], dtype=torch.int32),
     }
+    
+    if return_extra_metrics:
+        upscale_mask = True
+    
+    if upscale_mask:
+        dummy_inputs["orig_im_size"] = torch.tensor([1024, 1024], dtype=torch.int32)
+        output_names = ["masks", "iou_predictions", "low_res_masks"]
+        if return_extra_metrics:
+            output_names = ["masks", "iou_predictions", "stability_scores", "areas", "low_res_masks"]
+    else:
+        output_names = ["low_res_masks", "iou_predictions"]
 
     _ = onnx_model(**dummy_inputs)
-
-    output_names = ["masks", "iou_predictions", "low_res_masks"]
 
     pathlib.Path(output).parent.mkdir(parents=True, exist_ok=True)
     with warnings.catch_warnings():
@@ -181,6 +199,7 @@ if __name__ == "__main__":
         gelu_approximate=args.gelu_approximate,
         use_stability_score=args.use_stability_score,
         return_extra_metrics=args.return_extra_metrics,
+        upscale_mask=args.upscale_mask,
     )
 
     if args.quantize_out is not None:
