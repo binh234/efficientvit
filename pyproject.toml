@@ -37,18 +37,21 @@ dependencies = [
     "transformers",
     "matplotlib",
     "onnx",
-    'segment_anything @ git+ssh://git@github.com/facebookresearch/segment-anything.git',
+    'segment_anything @ git+https://github.com/facebookresearch/segment-anything.git',
 ]
 
 [project.optional-dependencies]
 dev = [
     "onnxruntime",
     "onnxsim",
-    'tinynn @ git+ssh://git@github.com/alibaba/TinyNeuralNetwork.git',
+    'tinynn @ git+https://github.com/alibaba/TinyNeuralNetwork.git',
 ]
 
 [project.urls]
 Homepage = "https://github.com/binh234/efficientvit"
+
+[tool.setuptools]
+packages = ["efficientvit"]
 
 [tool.black]
 line-length = 120
