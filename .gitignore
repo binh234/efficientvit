@@ -1,6 +1,15 @@
 *.DS_Store*
+*.pyc
+*.pyo
+*.pyd
 .vscode
-__pycache__/
+**/__pycache__/
 assets/checkpoints/
 .dev/
 .exp/
+__py
+data
+results
+**.egg-info
+*.onnx
+.hypothesis
