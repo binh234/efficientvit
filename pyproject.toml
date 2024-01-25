@@ -44,7 +44,7 @@ dependencies = [
 dev = [
     "onnxruntime",
     "onnxsim",
-    'tinynn @ git+ssh://git@github.com/facebookresearch/segment-anything.git',
+    'tinynn @ git+ssh://git@github.com/alibaba/TinyNeuralNetwork.git',
 ]
 
 [project.urls]
