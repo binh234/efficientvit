@@ -37,13 +37,13 @@ dependencies = [
     "transformers",
     "matplotlib",
     "onnx",
+    "onnxsim",
     'segment_anything @ git+https://github.com/facebookresearch/segment-anything.git',
 ]
 
 [project.optional-dependencies]
 dev = [
     "onnxruntime",
-    "onnxsim",
     'tinynn @ git+https://github.com/alibaba/TinyNeuralNetwork.git',
 ]
 
