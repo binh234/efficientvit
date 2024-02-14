@@ -444,14 +444,6 @@ class LiteMLA(nn.Module):
 
         return out
 
-    @staticmethod
-    def configure_litemla(model: nn.Module, **kwargs) -> None:
-        eps = kwargs.get("eps", None)
-        for m in model.modules():
-            if isinstance(m, LiteMLA):
-                if eps is not None:
-                    m.eps = eps
-
 
 class EfficientViTBlock(nn.Module):
     def __init__(
@@ -460,6 +452,7 @@ class EfficientViTBlock(nn.Module):
         heads_ratio: float = 1.0,
         dim=32,
         expand_ratio: float = 4,
+        scales=(5,),
         norm="bn2d",
         act_func="hswish",
     ):
@@ -471,6 +464,7 @@ class EfficientViTBlock(nn.Module):
                 heads_ratio=heads_ratio,
                 dim=dim,
                 norm=(None, norm),
+                scales=scales,
             ),
             IdentityLayer(),
         )
