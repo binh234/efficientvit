@@ -1,6 +1,6 @@
 import argparse
 import warnings
-from typing import Tuple, List
+from typing import List, Tuple
 
 import torch
 import torch.nn as nn
@@ -8,8 +8,9 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torchvision.transforms.functional import resize
 
-from efficientvit.sam_model_zoo import create_sam_model
 from efficientvit.models.efficientvit.sam import EfficientViTSamPredictor
+from efficientvit.models.utils import load_state_dict_from_file
+from efficientvit.sam_model_zoo import create_sam_model
 
 parser = argparse.ArgumentParser(description="Export the efficient-sam encoder to an onnx model.")
 parser.add_argument(
@@ -59,7 +60,31 @@ parser.add_argument(
         "for some runtimes that have slow or unimplemented erf ops, used in GELU."
     ),
 )
+parser.add_argument(
+    "--layernorm-fp32",
+    action="store_true",
+    help=(
+        "Force layernorm layers to run in FP32 precision to preserving accuracy and avoid numeric overflow"
+    ),
+)
 parser.add_argument("--simplify", action="store_true", help="Simplify onnx model by onnx-sim")
+
+
+class LayerNormFP32(nn.LayerNorm):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return F.layer_norm(
+            input.float(), self.normalized_shape, self.weight.float(), self.bias.float(), self.eps
+        ).type_as(input)
+
+
+class LayerNorm2dFP32(nn.LayerNorm):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fp32 = x.float()
+        out = x_fp32 - torch.mean(x_fp32, dim=1, keepdim=True)
+        out = out / torch.sqrt(torch.square(out).mean(dim=1, keepdim=True) + self.eps)
+        if self.elementwise_affine:
+            out = out * self.weight.float().view(1, -1, 1, 1) + self.bias.float().view(1, -1, 1, 1)
+        return out.type_as(x)
 
 
 class SamResize:
@@ -160,21 +185,34 @@ def run_export(
     use_preprocess: bool,
     opset: int,
     gelu_approximate: bool = False,
+    layernorm_fp32: bool = False,
 ) -> None:
     print("Loading model...")
     # build model
-    efficientvit_sam = create_sam_model(model_type, True, checkpoint).eval()
+    efficientvit_sam = create_sam_model(model_type)
+
+    if gelu_approximate:
+        for _, m in efficientvit_sam.named_modules():
+            if isinstance(m, nn.GELU):
+                m.approximate = "tanh"
+
+    if layernorm_fp32:
+        old_norm = efficientvit_sam.image_encoder.norm
+        efficientvit_sam.image_encoder.norm = LayerNorm2dFP32(
+            normalized_shape=old_norm.normalized_shape,
+            eps=old_norm.eps,
+            elementwise_affine=old_norm.elementwise_affine,
+        )
+
+    efficientvit_sam = efficientvit_sam.eval()
+    weight = load_state_dict_from_file(checkpoint)
+    efficientvit_sam.load_state_dict(weight)
     efficientvit_sam_predictor = EfficientViTSamPredictor(efficientvit_sam)
 
     onnx_model = EncoderModel(
         predictor=efficientvit_sam_predictor,
         use_preprocess=use_preprocess,
     )
-
-    if gelu_approximate:
-        for _, m in onnx_model.named_modules():
-            if isinstance(m, torch.nn.GELU):
-                m.approximate = "tanh"
 
     image_size = [onnx_model.image_size[1], onnx_model.image_size[1]]
     print("Model's input size: ", image_size)
@@ -241,6 +279,7 @@ if __name__ == "__main__":
         use_preprocess=args.use_preprocess,
         opset=args.opset,
         gelu_approximate=args.gelu_approximate,
+        layernorm_fp32=args.layernorm_fp32,
     )
 
     if args.quantize_out is not None:
