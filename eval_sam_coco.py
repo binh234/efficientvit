@@ -22,7 +22,9 @@ def iou(mask_a: np.ndarray, mask_b: np.ndarray) -> float:
     return float(intersection / union) * 100
 
 
-def predict_mask(predictor: EfficientViTSamPredictor, bbox: list[int], multimask=True) -> np.ndarray:
+def predict_mask(
+    predictor: EfficientViTSamPredictor, bbox: list[int], multimask=True
+) -> np.ndarray:
     masks, iou_predictions, _ = predictor.predict(
         point_coords=None,
         point_labels=None,
@@ -45,26 +47,33 @@ def filter_results_by_area(results: list[dict], min=None, max=None) -> list[dict
     return filtered
 
 
+def compute_iou(results):
+    return sum(r["iou"] for r in results) / len(results) if len(results) else 0
+
+
 def get_coco_metric(results: list[dict]) -> dict[str, float]:
     small_results = filter_results_by_area(results, None, 32**2)
     medium_results = filter_results_by_area(results, 32**2, 96**2)
     large_results = filter_results_by_area(results, 96**2, None)
 
     return {
-        "all": sum(r["iou"] for r in results) / len(results),
-        "large": sum(r["iou"] for r in large_results) / len(large_results),
-        "medium": sum(r["iou"] for r in medium_results) / len(medium_results),
-        "small": sum(r["iou"] for r in small_results) / len(small_results),
+        "all": compute_iou(results),
+        "large": compute_iou(large_results),
+        "medium": compute_iou(medium_results),
+        "small": compute_iou(small_results),
     }
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_path", type=str, default="/dataset/coco/val2017")
-    parser.add_argument("--anno_path", type=str, default="/dataset/coco/annotations/instances_val2017.json")
+    parser.add_argument(
+        "--anno_path", type=str, default="/dataset/coco/annotations/instances_val2017.json"
+    )
     parser.add_argument("--model", type=str)
     parser.add_argument("--weight_url", type=str, default=None)
     parser.add_argument("--multimask", action="store_true")
+    parser.add_argument("--log_step", type=int, default=200)
 
     args = parser.parse_args()
     print(args.__dict__)
@@ -105,7 +114,8 @@ def main():
 
                 results.append(result)
 
-            t.set_postfix(get_coco_metric(results))
+            if (i + 1) % args.log_step == 0:
+                t.set_postfix(get_coco_metric(results))
             t.update()
     print(", ".join([f"{key}={val:.3f}" for key, val in get_coco_metric(results).items()]))
 
