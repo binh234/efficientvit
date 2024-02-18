@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     "--opset",
     type=int,
-    default=12,
+    default=17,
     help="The ONNX opset version to use. Must be >=11",
 )
 parser.add_argument(
@@ -61,31 +61,26 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
-    "--layernorm-fp32",
+    "--layernorm-onnx",
     action="store_true",
     help=(
-        "Force layernorm layers to run in FP32 precision to preserving accuracy and avoid numeric overflow"
+        "Use ONNX layernorm operator. Useful if you want to run inference "
+        "in FP16 to preserve accuracy and avoid numeric overflow"
     ),
 )
 parser.add_argument("--simplify", action="store_true", help="Simplify onnx model by onnx-sim")
 
-
-class LayerNormFP32(nn.LayerNorm):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.layer_norm(
-            input.float(), self.normalized_shape, self.weight.float(), self.bias.float(), self.eps
-        ).type_as(input)
-
-
-class LayerNorm2dFP32(nn.LayerNorm):
+class LayerNorm2dOp(nn.LayerNorm):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x_fp32 = x.float()
-        out = x_fp32 - torch.mean(x_fp32, dim=1, keepdim=True)
-        out = out / torch.sqrt(torch.square(out).mean(dim=1, keepdim=True) + self.eps)
-        if self.elementwise_affine:
-            out = out * self.weight.float().view(1, -1, 1, 1) + self.bias.float().view(1, -1, 1, 1)
-        return out.type_as(x)
-
+        if torch.onnx.is_in_onnx_export():
+            return F.layer_norm(
+                x.permute(0, 2, 3, 1), self.normalized_shape, self.weight, self.bias, self.eps).permute(0, 3, 1, 2)
+        else:
+            out = x - torch.mean(x, dim=1, keepdim=True)
+            out = out / torch.sqrt(torch.square(out).mean(dim=1, keepdim=True) + self.eps)
+            if self.elementwise_affine:
+                out = out * self.weight.float().view(1, -1, 1, 1) + self.bias.float().view(1, -1, 1, 1)
+            return out
 
 class SamResize:
     def __init__(self, size: int) -> None:
@@ -185,7 +180,7 @@ def run_export(
     use_preprocess: bool,
     opset: int,
     gelu_approximate: bool = False,
-    layernorm_fp32: bool = False,
+    layernorm_onnx: bool = False,
 ) -> None:
     print("Loading model...")
     # build model
@@ -196,9 +191,9 @@ def run_export(
             if isinstance(m, nn.GELU):
                 m.approximate = "tanh"
 
-    if layernorm_fp32:
+    if layernorm_onnx and opset >= 17:
         old_norm = efficientvit_sam.image_encoder.norm
-        efficientvit_sam.image_encoder.norm = LayerNorm2dFP32(
+        efficientvit_sam.image_encoder.norm = LayerNorm2dOp(
             normalized_shape=old_norm.normalized_shape,
             eps=old_norm.eps,
             elementwise_affine=old_norm.elementwise_affine,
@@ -279,7 +274,7 @@ if __name__ == "__main__":
         use_preprocess=args.use_preprocess,
         opset=args.opset,
         gelu_approximate=args.gelu_approximate,
-        layernorm_fp32=args.layernorm_fp32,
+        layernorm_onnx=args.layernorm_onnx,
     )
 
     if args.quantize_out is not None:
