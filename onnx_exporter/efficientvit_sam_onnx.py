@@ -118,8 +118,9 @@ class EfficientSamOnnxModel(nn.Module):
         ).to(iou_preds.device)
         score = iou_preds + (num_points - 2.5) * score_reweight
         best_idx = torch.argmax(score, dim=1)
-        masks = masks[torch.arange(masks.shape[0]), best_idx, :, :].unsqueeze(1)
-        iou_preds = iou_preds[torch.arange(masks.shape[0]), best_idx].unsqueeze(1)
+        batch_idx = torch.arange(masks.shape[0])
+        masks = masks[batch_idx, best_idx, :, :].unsqueeze(1)
+        iou_preds = iou_preds[batch_idx, best_idx].unsqueeze(1)
 
         return masks, iou_preds
 

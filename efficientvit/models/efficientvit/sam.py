@@ -10,14 +10,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from segment_anything import SamAutomaticMaskGenerator
-from segment_anything.modeling import MaskDecoder, PromptEncoder, TwoWayTransformer
-from segment_anything.modeling.mask_decoder import MaskDecoder
-from segment_anything.modeling.prompt_encoder import PromptEncoder
+from segment_anything.modeling import PromptEncoder, TwoWayTransformer
 from segment_anything.utils.amg import build_all_layer_point_grids
 from segment_anything.utils.transforms import ResizeLongestSide
 from torchvision.transforms.functional import resize, to_pil_image
 
-from efficientvit.models.efficientvit.backbone import EfficientViTBackbone, EfficientViTLargeBackbone
+from efficientvit.models.efficientvit.backbone import (
+    EfficientViTBackbone,
+    EfficientViTLargeBackbone,
+)
 from efficientvit.models.nn import (
     ConvLayer,
     DAGBlock,
@@ -30,6 +31,7 @@ from efficientvit.models.nn import (
     UpSampleLayer,
     build_norm,
 )
+from efficientvit.models.efficientvit.mask_decoder import MaskDecoder
 from efficientvit.models.utils import build_kwargs_from_config, get_device
 
 __all__ = [
@@ -336,7 +338,9 @@ class EfficientViTSamPredictor:
         # Transform input prompts
         coords_torch, labels_torch, box_torch, mask_input_torch = None, None, None, None
         if point_coords is not None:
-            assert point_labels is not None, "point_labels must be supplied if point_coords is supplied."
+            assert (
+                point_labels is not None
+            ), "point_labels must be supplied if point_coords is supplied."
             point_coords = self.apply_coords(point_coords)
             coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=device)
             labels_torch = torch.as_tensor(point_labels, dtype=torch.int, device=device)
@@ -498,7 +502,9 @@ class EfficientViTSamAutomaticMaskGenerator(SamAutomaticMaskGenerator):
         self.output_mode = output_mode
 
 
-def build_efficientvit_sam(image_encoder: EfficientViTSamImageEncoder, image_size: int) -> EfficientViTSam:
+def build_efficientvit_sam(
+    image_encoder: EfficientViTSamImageEncoder, image_size: int
+) -> EfficientViTSam:
     return EfficientViTSam(
         image_encoder=image_encoder,
         prompt_encoder=PromptEncoder(

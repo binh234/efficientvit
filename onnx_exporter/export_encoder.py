@@ -184,7 +184,7 @@ def run_export(
 ) -> None:
     print("Loading model...")
     # build model
-    efficientvit_sam = create_sam_model(model_type)
+    efficientvit_sam = create_sam_model(model_type, False)
 
     if gelu_approximate:
         for _, m in efficientvit_sam.named_modules():
