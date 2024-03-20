@@ -153,22 +153,22 @@ class EncoderModel(nn.Module):
 
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
         # Resize & Permute to (C,H,W)
-        x = self.resize_transform(x)
+        # x = self.resize_transform(x)
 
         # Normalize
         x = x.float() / 255
         x = transforms.Normalize(mean=self.pixel_mean, std=self.pixel_std)(x)
 
         # Pad
-        h, w = x.shape[-2:]
-        th, tw = self.image_size[1], self.image_size[1]
-        assert th >= h and tw >= w
-        padh = th - h
-        padw = tw - w
-        x = F.pad(x, (0, padw, 0, padh), value=0)
+        # h, w = x.shape[-2:]
+        # th, tw = self.image_size[1], self.image_size[1]
+        # assert th >= h and tw >= w
+        # padh = th - h
+        # padw = tw - w
+        # x = F.pad(x, (0, padw, 0, padh), value=0)
 
-        # Expand
-        x = torch.unsqueeze(x, 0)
+        # # Expand
+        # x = torch.unsqueeze(x, 0)
 
         return x
 
@@ -211,18 +211,18 @@ def run_export(
 
     image_size = [onnx_model.image_size[1], onnx_model.image_size[1]]
     print("Model's input size: ", image_size)
-    if use_preprocess:
-        dummy_input = {
-            "image": torch.randint(0, 255, (image_size[0], image_size[1], 3), dtype=torch.int32)
-        }
-        dynamic_axes = None
-    else:
-        dummy_input = {
-            "image": torch.randn((1, 3, image_size[0], image_size[1]), dtype=torch.float)
-        }
-        dynamic_axes = {
-            "image": {0: "batch_size"},
-        }
+    # if use_preprocess:
+    #     dummy_input = {
+    #         "image": torch.randint(0, 255, (image_size[0], image_size[1], 3), dtype=torch.int32)
+    #     }
+    #     dynamic_axes = None
+    # else:
+    dummy_input = {
+        "image": torch.randn((1, 3, image_size[0], image_size[1]), dtype=torch.float)
+    }
+    dynamic_axes = {
+        "image": {0: "batch_size"},
+    }
     _ = onnx_model(**dummy_input)
 
     output_names = ["image_embeddings"]
