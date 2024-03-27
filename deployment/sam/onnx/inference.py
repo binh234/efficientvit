@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 import yaml
-from export_encoder import SamResize
+from deployment.sam.onnx.export_encoder import SamResize
 
 
 def show_mask(mask, ax, random_color=False):
@@ -112,13 +112,19 @@ class SamDecoder:
         if point_coords is not None:
             point_coords = self.apply_coords(point_coords, origin_image_size, input_size).astype(np.float32)
 
+            prompts, labels = point_coords, point_labels
+
         if boxes is not None:
             boxes = self.apply_boxes(boxes, origin_image_size, input_size).astype(np.float32)
-            box_label = np.array([[2, 3] for _ in range(boxes.shape[0])], dtype=np.float32).reshape((-1, 2))
-            point_coords = boxes
-            point_labels = box_label
+            box_labels = np.array([[2, 3] for _ in range(boxes.shape[0])], dtype=np.float32).reshape((-1, 2))
+            
+            if point_coords is not None:
+                prompts = np.concatenate([prompts, boxes], axis=1)
+                labels = np.concatenate([labels, box_labels], axis=1)
+            else:
+                prompts, labels = boxes, box_labels
 
-        input_dict = {"image_embeddings": img_embeddings, "point_coords": point_coords, "point_labels": point_labels}
+        input_dict = {"image_embeddings": img_embeddings, "point_coords": prompts, "point_labels": labels}
         low_res_masks, iou_predictions = self.session.run(None, input_dict)
 
         masks = mask_postprocessing(low_res_masks, origin_image_size)
@@ -229,7 +235,7 @@ if __name__ == "__main__":
         plt.figure(figsize=(10, 10))
         plt.imshow(raw_img)
         for mask in masks:
-            show_mask(mask, plt.gca())
+            show_mask(mask, plt.gca(), random_color=len(masks) > 1)
         show_points(point_coords, point_labels, plt.gca())
         plt.axis("off")
         plt.savefig(args.out_path, bbox_inches="tight", dpi=300, pad_inches=0.0)
@@ -245,7 +251,7 @@ if __name__ == "__main__":
         plt.figure(figsize=(10, 10))
         plt.imshow(raw_img)
         for mask in masks:
-            show_mask(mask, plt.gca())
+            show_mask(mask, plt.gca(), random_color=len(masks) > 1)
         for box in boxes:
             show_box(box, plt.gca())
         plt.axis("off")

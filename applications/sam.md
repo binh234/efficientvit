@@ -159,7 +159,7 @@ python deployment/sam/onnx/export_decoder.py --model xl1 --weight_url assets/che
 
 ```python
 # ONNX Inference
-python deployment/sam/onnx/inference.py --model xl1 --encoder_model assets/export_models/sam/onnx/xl1_encoder.onnx --decoder_model assets/export_models/sam/onnx/xl1_decoder.onnx --mode point
+python -m deployment.sam.onnx.inference --model xl1 --encoder_model assets/export_models/sam/onnx/xl1_encoder.onnx --decoder_model assets/export_models/sam/onnx/xl1_decoder.onnx --mode point
 ```
 
 ### TensorRT Export
@@ -176,5 +176,5 @@ trtexec --onnx=assets/export_models/sam/onnx/xl1_decoder.onnx --minShapes=point_
 
 ```python
 # TensorRT Inference
-python deployment/sam/tensorrt/inference.py --model xl1 --encoder_engine assets/export_models/sam/tensorrt/xl1_encoder.engine --decoder_engine assets/export_models/sam/tensorrt/xl1_decoder.engine --mode point
+python -m deployment.sam.tensorrt.inference --model xl1 --encoder_engine assets/export_models/sam/tensorrt/xl1_encoder.engine --decoder_engine assets/export_models/sam/tensorrt/xl1_decoder.engine --mode point
 ```
